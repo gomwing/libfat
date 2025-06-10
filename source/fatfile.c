@@ -30,7 +30,7 @@
  2009-10-23 oggzee: fixes for cluster aligned file size (write, truncate, seek)
 */
 
-
+#include <limits.h>
 #include "fatfile.h"
 
 #include <fcntl.h>
@@ -231,7 +231,7 @@ int _FAT_open_r (struct _reent *r, void *fileStruct, const char *path, int flags
 				pathEnd += 1;
 			}
 			// Create the entry data
-			strncpy (dirEntry.filename, pathEnd, NAME_MAX - 1);
+			strncpy (dirEntry.filename, pathEnd, PATH_MAX - 1);
 			memset (dirEntry.entryData, 0, DIR_ENTRY_DATA_SIZE);
 
 			// Set the creation time and date

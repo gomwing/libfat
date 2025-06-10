@@ -51,7 +51,8 @@ extern "C" {
 #  include <ogc/disc_io.h>
 #else
 #  ifdef NDS
-#    include <nds/disc_io.h>
+//#    include <nds/disc_io.h>
+//#    include <disc_io.h>
 #  else
 #    include <disc_io.h>
 #  endif

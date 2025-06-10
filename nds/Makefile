@@ -17,7 +17,7 @@ include $(DEVKITARM)/ds_rules
 #---------------------------------------------------------------------------------
 BUILD		?=	release
 SOURCES		:=	../source source
-INCLUDES	:=	../include
+INCLUDES	:=	../include 
 DATA		:=
 LIB		:=	$(TOPDIR)/nds/lib
 
@@ -26,7 +26,7 @@ LIB		:=	$(TOPDIR)/nds/lib
 #---------------------------------------------------------------------------------
 ARCH	:=	-mthumb -mthumb-interwork
 
-CFLAGS	:=	-g -Wall -O2 \
+CFLAGS	:=	-g -Wall -O2 -Iv:/_DEVELOP_/devkitPro.old/libnds/include \
 		-ffunction-sections -fdata-sections \
 		-march=armv5te -mtune=arm946e-s -fomit-frame-pointer\
 		-ffast-math \

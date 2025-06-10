@@ -29,7 +29,8 @@
 #ifndef _COMMON_H
 #define _COMMON_H
 
-#include <fat.h>
+
+////#include <fat.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -46,9 +47,13 @@
    #include <ogc/disc_io.h>
    #include <gccore.h>
 #elif defined(NDS)
-   #include <nds/ndstypes.h>
-   #include <nds/system.h>
-   #include <nds/disc_io.h>
+   //#include <nds/ndstypes.h>
+   //#include <nds/system.h>
+   //#include <nds/disc_io.h>
+
+
+
+
 #elif defined(GBA)
    #include <gba_types.h>
    #include <disc_io.h>
@@ -71,7 +76,7 @@
 #elif defined (NDS)
    #define DEFAULT_CACHE_PAGES 16
    #define DEFAULT_SECTORS_PAGE 8
-   #define USE_RTC_TIME
+   ////#define USE_RTC_TIME
 #elif defined (GBA)
    #define DEFAULT_CACHE_PAGES 2
    #define DEFAULT_SECTORS_PAGE 8
@@ -80,5 +85,43 @@
   #define DEFAULT_CACHE_PAGES 16
   #define DEFAULT_SECTORS_PAGE 8
 #endif
+
+
+#include <stdbool.h>
+typedef unsigned int sec_t;
+typedef unsigned int u32;
+typedef			 int s32;
+typedef unsigned char u8;
+typedef unsigned short u16;
+
+typedef bool (*FN_MEDIUM_STARTUP)(void);
+typedef bool (*FN_MEDIUM_ISINSERTED)(void);
+typedef bool (*FN_MEDIUM_READSECTORS)(sec_t sector, sec_t numSectors, void* buffer);
+typedef bool (*FN_MEDIUM_WRITESECTORS)(sec_t sector, sec_t numSectors, const void* buffer);
+typedef bool (*FN_MEDIUM_CLEARSTATUS)(void);
+typedef bool (*FN_MEDIUM_SHUTDOWN)(void);
+
+struct DISC_INTERFACE_STRUCT {
+	unsigned long			ioType;
+	unsigned long			features;
+	FN_MEDIUM_STARTUP		startup;
+	FN_MEDIUM_ISINSERTED	isInserted;
+	FN_MEDIUM_READSECTORS	readSectors;
+	FN_MEDIUM_WRITESECTORS	writeSectors;
+	FN_MEDIUM_CLEARSTATUS	clearStatus;
+	FN_MEDIUM_SHUTDOWN		shutdown;
+};
+typedef struct DISC_INTERFACE_STRUCT DISC_INTERFACE;
+
+struct _reent
+{
+	int _errno;
+	// Other members are not used in this file, so they are not defined here
+};
+
+typedef struct {
+	int device;
+	void* dirStruct;
+} DIR_ITER;
 
 #endif // _COMMON_H

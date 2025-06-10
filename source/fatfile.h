@@ -32,7 +32,7 @@
 #ifndef _FATFILE_H
 #define _FATFILE_H
 
-#include <sys/reent.h>
+////#include <sys/reent.h>
 #include <sys/stat.h>
 
 #include "common.h"

@@ -8,9 +8,6 @@ endif
 
 include $(DEVKITARM)/ds_rules
 
-	export CC	:=	V:\\_DEVELOP_\\devkitPro\\msys2\\mingw32\\bin\\gcc.exe
-	export CXX	:=	V:\\_DEVELOP_\\devkitPro\\msys2\\mingw32\\bin\\g++.exe
-
 #---------------------------------------------------------------------------------
 # TARGET is the name of the output
 # BUILD is the directory where object files & intermediate files will be placed
@@ -19,37 +16,27 @@ include $(DEVKITARM)/ds_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	$(shell basename $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	source testbench
+SOURCES		:=	gfx source data
 INCLUDES	:=	include build
 
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
-#ARCH	:=	-march=armv5te -mtune=arm946e-s -mthumb
+ARCH	:=	-march=armv5te -mtune=arm946e-s -mthumb
 
-CFLAGS	:=	-g -Wall -O2 -ffunction-sections -fdata-sections \
--IV:/_DEVELOP_/devkitPro/msys2/mingw32/i686-w64-mingw32/include\
--IV:/_DEVELOP_/devkitPro/msys2/mingw32/lib/gcc/i686-w64-mingw32/15.1.0/include\
--IV:/_DEVELOP_/devkitPro/msys2/mingw32/lib/gcc/i686-w64-mingw32/15.1.0/include/c++/i686-w64-mingw32
-#-IV:/_DEVELOP_/devkitPro/msys2/mingw32/lib/gcc/i686-w64-mingw32/15.1.0/include/c++/tr1\
-
-#V:\_DEVELOP_\devkitPro\msys2\mingw32\lib\gcc\i686-w64-mingw32\15.1.0\include\c++\i686-w64-mingw32\bits
-#requires_hosted
-#V:/DEVELOP_/devkitPro/msys2/mingw32/i686-w64-mingw32/include
-#-Iv:/_DEVELOP_/devkitPro.old/libnds/include
-#			$(ARCH)
+CFLAGS	:=	-g -Wall -O2 -ffunction-sections -fdata-sections\
+			$(ARCH)
 
 CFLAGS	+=	$(INCLUDE) -DARM9
 CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions
 
 ASFLAGS	:=	-g $(ARCH)
-#LDFLAGS	=	-specs=ds_arm9.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
-LDFLAGS	=	-g $(ARCH) -Wl,-Map,$(notdir $*.map)
+LDFLAGS	=	-specs=ds_arm9.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-LIBS	:= #-lnds9
+LIBS	:= -lnds9
 
 
 #---------------------------------------------------------------------------------
@@ -119,8 +106,8 @@ DEPENDS	:=	$(OFILES:.o=.d)
 #---------------------------------------------------------------------------------
 # main targets
 #---------------------------------------------------------------------------------
-#$(OUTPUT).exe	: 	$(OUTPUT).elf
-$(OUTPUT).exe	:	$(OFILES)
+$(OUTPUT).nds	: 	$(OUTPUT).elf
+$(OUTPUT).elf	:	$(OFILES)
 
 #---------------------------------------------------------------------------------
 %.o	:	%.bin
@@ -128,22 +115,6 @@ $(OUTPUT).exe	:	$(OFILES)
 	@echo $(notdir $<)
 	$(bin2o)
 
-#---------------------------------------------------------------------------------
-#%.exe	:	%.o
-#---------------------------------------------------------------------------------
-#	@echo $(notdir $<)
-#	$(bin2o)
-
-#---------------------------------------------------------------------------------
-#%.elf	:	%.exe
-#---------------------------------------------------------------------------------
-#	@echo $(notdir $<)
-#	rename $(notdir $<) $(notdir $<).elf
-%.exe:
-	$(SILENTMSG) linking $(notdir $@)
-	$(ADD_COMPILE_COMMAND) end
-	$(SILENTCMD)$(LD) $(LIBPATHS) $(_LDFLAGS) $(OFILES) $(LIBS) $(_EXTRALIBS) -o $@
-	#$(SILENTCMD)$(NM) -CSn $@ > $(notdir $*.lst)
 
 -include $(DEPENDS)
 

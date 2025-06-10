@@ -35,14 +35,14 @@
 
 #include <string.h>
 #include <limits.h>
-
+#include <stdint.h>
 #include "common.h"
-#include "cache.h"
 #include "disc.h"
 
 #include "mem_allocate.h"
 #include "bit_ops.h"
 #include "file_allocation_table.h"
+#include "cache.h"
 
 #define CACHE_FREE UINT_MAX
 

@@ -1,0 +1,30 @@
+{
+  "version": "0.2.1",
+  "configurations": [
+    {
+      "type": "cppdbg",
+      "name": "libfat.exe",
+      "project": "libfat.exe",
+      "args": [],
+      "cwd": "${workspaceRoot}",
+      "program": "${debugInfo.target}",
+      "environment": [],
+      "stopAtEntry": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "V:\\_DEVELOP_\\devkitPro\\msys2\\mingw32\\bin\\gdb.exe",
+      "externalConsole": true
+    },
+    {
+      "type": "cppdbg",
+      "name": "libfat.ex",
+      "project": "libfat.exe",
+      "projectTarget": "",
+      "cwd": "${workspaceRoot}",
+      "program": "${debugInfo.target}",
+      "processId": 0,
+      "MIMode": "gdb",
+      "miDebuggerPath": "${env.MINGW_PREFIX}\\bin\\gdb.exe",
+      "externalConsole": true
+    }
+  ]
+}
