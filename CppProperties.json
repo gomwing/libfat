@@ -1,0 +1,27 @@
+{
+  "configurations": [
+    {
+      "inheritEnvironments": [
+        "gcc-x86"
+      ],
+      "name": "gccarm",
+      "includePath": [
+        "${workspaceRoot}\\**",
+        "V:\\_DEVELOP_\\devkitPro\\msys2\\mingw32\\i686-w64-mingw32\\include",
+        "V:\\_DEVELOP_\\devkitPro\\msys2\\mingw32\\lib\\gcc\\i686-w64-mingw32\\15.1.0\\include"
+        //"V:\\_DEVELOP_\\devkitPro.old\\libnds\\include",
+        //"V:\\_DEVELOP_\\devkitPro.old\\libnds\\include\\nds",
+        //"V:\\_DEVELOP_\\devkitPro.old\\libnds\\include\\nds\\arm9",
+        //"V:\\_DEVELOP_\\devkitPro.old\\devkitARM\\lib\\gcc\\arm-none-eabi\\13.2.0\\include",
+        //"${env.INCLUDE}",
+        //"V:\\_DEVELOP_\\devkitPro.old\\devkitARM\\arm-none-eabi\\include"
+      ],
+      "intelliSenseMode": "windows-clang-x86",
+      "defines": [
+        "ARM9",
+        "ARM7",
+        "NDS"
+      ]
+    }
+  ]
+}

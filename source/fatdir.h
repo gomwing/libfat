@@ -32,10 +32,10 @@
 #ifndef _FATDIR_H
 #define _FATDIR_H
 
-#include <sys/reent.h>
+////#include <sys/reent.h>
 #include <sys/stat.h>
-#include <sys/statvfs.h>
-#include <sys/iosupport.h>
+////#include <sys/statvfs.h>
+////#include <sys/iosupport.h>
 #include "common.h"
 #include "directory.h"
 

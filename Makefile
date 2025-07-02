@@ -16,7 +16,7 @@ default: release
 
 all: release dist
 
-release: nds-release gba-release cube-release wii-release gp2x-release
+release: nds-release #gba-release cube-release wii-release gp2x-release
 
 ogc-release: include/libfatversion.h cube-release wii-release
 
@@ -54,7 +54,7 @@ wii-debug: include/libfatversion.h
 gp2x-debug: include/libfatversion.h
 	$(MAKE) -C gp2x BUILD=debug
 
-clean: nds-clean gba-clean ogc-clean gp2x-clean
+clean: nds-clean #gba-clean ogc-clean gp2x-clean
 
 nds-clean:
 	$(MAKE) -C nds clean

@@ -31,7 +31,8 @@
 #include "file_allocation_table.h"
 #include "partition.h"
 #include "mem_allocate.h"
-#include <string.h>
+////#include <string.h>
+void* memset(void* ptr, int value, unsigned int num);
 
 /*
 Gets the cluster linked from input cluster

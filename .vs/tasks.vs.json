@@ -1,0 +1,27 @@
+{
+  "version": "0.2.1",
+  "tasks": [
+    {
+      "taskName": "task-Makefile",
+      "appliesTo": "Makefile",
+      "launch": "command",
+      "contextType": "build",
+      "command": "make",
+      "args": [
+        ""
+      ],
+      "key": "ctrl+shift+b"
+    },
+    {
+      "taskName": "task-Makefile",
+      "appliesTo": "Makefile",
+      "launch": "command",
+      "contextType": "clean",
+      "command": "make",
+      "args": [
+        "clean"
+      ],
+      "key": "ctrl+shift+c"
+    }
+  ]
+}
