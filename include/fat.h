@@ -51,7 +51,9 @@ extern "C" {
 #  include <ogc/disc_io.h>
 #else
 #  ifdef NDS
+#ifdef GOMWING
 #    include <nds/disc_io.h>
+#endif
 #  else
 #    include <disc_io.h>
 #  endif

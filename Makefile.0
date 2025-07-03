@@ -27,7 +27,7 @@ INCLUDES	:=	include build
 #---------------------------------------------------------------------------------
 #ARCH	:=	-march=armv5te -mtune=arm946e-s -mthumb
 
-CFLAGS	:=	-g -Wall -O0 -ffunction-sections -fdata-sections -Wno-return-type\
+CFLAGS	:=	-g -Wall -O2 -ffunction-sections -fdata-sections \
 -IV:/_DEVELOP_/devkitPro/msys2/mingw32/i686-w64-mingw32/include\
 -IV:/_DEVELOP_/devkitPro/msys2/mingw32/lib/gcc/i686-w64-mingw32/15.1.0/include\
 -IV:/_DEVELOP_/devkitPro/msys2/mingw32/lib/gcc/i686-w64-mingw32/15.1.0/include/c++/i686-w64-mingw32
@@ -44,8 +44,7 @@ CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions
 
 ASFLAGS	:=	-g $(ARCH)
 #LDFLAGS	=	-specs=ds_arm9.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
-LDFLAGS	=	-g $(ARCH) -Wl,-Map,$(notdir $*.map) 
-#-static-libgcc -static-libstdc++
+LDFLAGS	=	-g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
@@ -109,7 +108,7 @@ $(BUILD):
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-	@rm -fr $(BUILD) $(TARGET).exe 
+	@rm -fr $(BUILD) $(TARGET).elf $(TARGET).nds $(TARGET).ds.gba
 
 
 #---------------------------------------------------------------------------------
@@ -134,11 +133,6 @@ $(OUTPUT).exe	:	$(OFILES)
 #---------------------------------------------------------------------------------
 #	@echo $(notdir $<)
 #	$(bin2o)
-#%.o: %.c
-#	$(SILENTMSG) $(notdir $<)
-#	$(ADD_COMPILE_COMMAND) add $(CC) "$(_EXTRADEFS) $(CPPFLAGS) $(CFLAGS) -c $< -o $@" $<
-#	$(SILENTCMD)$(CC) -MMD -MP -MF $(DEPSDIR)/$*.d $(_EXTRADEFS) $(CPPFLAGS) $(CFLAGS) -c $< -o $@ $(ERROR_FILTER)
-#	$(CC) -MMD -MP -MF $(DEPSDIR)/$*.d $(_EXTRADEFS) $(CPPFLAGS) $(CFLAGS) -c $< -o $@ $(ERROR_FILTER)
 
 #---------------------------------------------------------------------------------
 #%.elf	:	%.exe

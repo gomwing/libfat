@@ -47,6 +47,21 @@ typedef struct {
 	bool       validEntry;
 } DIR_STATE_STRUCT;
 
+#ifndef GOMWING
+struct statvfs {
+	unsigned long f_bsize;    /* file system block size */
+	unsigned long f_frsize;   /* fragment size */
+	unsigned long f_blocks;   /* size of fs in f_frsize units */
+	unsigned long f_bfree;    /* free blocks in fs in f_frsize units */
+	unsigned long f_bavail;   /* free blocks avail to non-superuser in f_frsize units */
+	unsigned long f_files;    /* total file nodes in file system */
+	unsigned long f_ffree;    /* free file nodes in fs */
+	unsigned long f_favail;   /* free file nodes avail to non-superuser */
+	unsigned long f_fsid;     /* file system ID */
+	unsigned long f_flag;     /* mount flags */
+	unsigned long f_namemax;  /* maximum filename length */
+};
+#endif
 extern int _FAT_stat_r (struct _reent *r, const char *path, struct stat *st);
 
 extern int _FAT_link_r (struct _reent *r, const char *existing, const char *newLink);

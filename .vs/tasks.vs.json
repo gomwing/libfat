@@ -3,7 +3,7 @@
   "tasks": [
     {
       "taskName": "task-Makefile",
-      "appliesTo": "Makefile",
+      "appliesTo": "*",
       "launch": "command",
       "contextType": "build",
       "command": "make",

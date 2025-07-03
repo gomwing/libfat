@@ -71,7 +71,7 @@
 #elif defined (NDS)
    #define DEFAULT_CACHE_PAGES 16
    #define DEFAULT_SECTORS_PAGE 8
-   #define USE_RTC_TIME
+   //#define USE_RTC_TIME
 #elif defined (GBA)
    #define DEFAULT_CACHE_PAGES 2
    #define DEFAULT_SECTORS_PAGE 8

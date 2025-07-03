@@ -6,6 +6,8 @@
 typedef int mutex_t;
 #endif
 
+#define __attribute__(x) //__attribute__((x))
+
 void __attribute__ ((weak)) _FAT_lock_init(mutex_t *mutex)
 {
 	return;

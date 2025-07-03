@@ -360,7 +360,7 @@ struct statvfs {
 	unsigned long f_namemax;  /* maximum filename length */
 };
 
-#if 0
+#if 1
 struct timeval
 {
 	long tv_sec;

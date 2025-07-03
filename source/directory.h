@@ -31,7 +31,7 @@
 #define _DIRECTORY_H
 
 #include <sys/stat.h>
-#include <sys/syslimits.h>
+#include <limits.h> //#include <sys/syslimits.h>
 
 #include "common.h"
 #include "partition.h"
@@ -72,7 +72,7 @@ typedef struct {
 	uint8_t            entryData[DIR_ENTRY_DATA_SIZE];
 	DIR_ENTRY_POSITION dataStart;		// Points to the start of the LFN entries of a file, or the alias for no LFN
 	DIR_ENTRY_POSITION dataEnd;			// Always points to the file/directory's alias entry
-	char               filename[NAME_MAX];
+	char               filename[PATH_MAX];
 } DIR_ENTRY;
 
 // Directory entry offsets

@@ -32,7 +32,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include <unistd.h>
-#include <sys/iosupport.h>
+#include <limits.h>	////#include <sys/iosupport.h>
 
 #include "fatdir.h"
 
@@ -44,6 +44,40 @@
 #include "filetime.h"
 #include "lock.h"
 
+/* Definitions for the flag in `f_flag'.  These definitions should be
+   kept in sync with the definitions in <sys/mount.h>.  */
+enum
+{
+	ST_RDONLY = 1,		/* Mount read-only.  */
+#define ST_RDONLY	ST_RDONLY
+	ST_NOSUID = 2			/* Ignore suid and sgid bits.  */
+#define ST_NOSUID	ST_NOSUID
+#ifdef __USE_GNU
+	,
+	ST_NODEV = 4,			/* Disallow access to device special files.  */
+# define ST_NODEV	ST_NODEV
+	ST_NOEXEC = 8,		/* Disallow program execution.  */
+# define ST_NOEXEC	ST_NOEXEC
+	ST_SYNCHRONOUS = 16,		/* Writes are synced at once.  */
+# define ST_SYNCHRONOUS	ST_SYNCHRONOUS
+	ST_MANDLOCK = 64,		/* Allow mandatory locks on an FS.  */
+# define ST_MANDLOCK	ST_MANDLOCK
+	ST_WRITE = 128,		/* Write on file/directory/symlink.  */
+# define ST_WRITE	ST_WRITE
+	ST_APPEND = 256,		/* Append-only file.  */
+# define ST_APPEND	ST_APPEND
+	ST_IMMUTABLE = 512,		/* Immutable file.  */
+# define ST_IMMUTABLE	ST_IMMUTABLE
+	ST_NOATIME = 1024,		/* Do not update access times.  */
+# define ST_NOATIME	ST_NOATIME
+	ST_NODIRATIME = 2048,		/* Do not update directory access times.  */
+# define ST_NODIRATIME	ST_NODIRATIME
+	ST_RELATIME = 4096,		/* Update atime relative to mtime/ctime.  */
+# define ST_RELATIME	ST_RELATIME
+	ST_NOSYMFOLLOW = 8192		/* Do not follow symlinks.  */
+# define ST_NOSYMFOLLOW	ST_NOSYMFOLLOW
+#endif	/* Use GNU.  */
+};
 
 int _FAT_stat_r (struct _reent *r, const char *path, struct stat *st) {
 	PARTITION* partition = NULL;
@@ -306,7 +340,7 @@ int _FAT_rename_r (struct _reent *r, const char *oldName, const char *newName) {
 	memcpy (&newDirEntry, &oldDirEntry, sizeof(DIR_ENTRY));
 
 	// Set the new name
-	strncpy (newDirEntry.filename, pathEnd, NAME_MAX - 1);
+	strncpy (newDirEntry.filename, pathEnd, PATH_MAX - 1);
 
 	// Write the new entry
 	if (!_FAT_directory_addEntry (partition, &newDirEntry, dirCluster)) {
@@ -395,7 +429,7 @@ int _FAT_mkdir_r (struct _reent *r, const char *path, int mode) {
 		pathEnd += 1;
 	}
 	// Create the entry data
-	strncpy (dirEntry.filename, pathEnd, NAME_MAX - 1);
+	strncpy (dirEntry.filename, pathEnd, PATH_MAX - 1);
 	memset (dirEntry.entryData, 0, DIR_ENTRY_DATA_SIZE);
 
 	// Set the creation time and date
@@ -511,7 +545,7 @@ int _FAT_statvfs_r (struct _reent *r, const char *path, struct statvfs *buf)
 	buf->f_flag = ST_NOSUID /* No support for ST_ISUID and ST_ISGID file mode bits */
 		| (partition->readOnly ? ST_RDONLY /* Read only file system */ : 0 ) ;
 	// Maximum filename length.
-	buf->f_namemax = NAME_MAX;
+	buf->f_namemax = PATH_MAX;
 
 	_FAT_unlock(&partition->lock);
 	return 0;
@@ -607,7 +641,7 @@ int _FAT_dirnext_r (struct _reent *r, DIR_ITER *dirState, char *filename, struct
 	}
 
 	// Get the filename
-	strncpy (filename, state->currentEntry.filename, NAME_MAX);
+	strncpy (filename, state->currentEntry.filename, PATH_MAX);
 	// Get the stats, if requested
 	if (filestat != NULL) {
 		_FAT_directory_entryStat (state->partition, &(state->currentEntry), filestat);

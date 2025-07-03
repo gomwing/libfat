@@ -20,7 +20,8 @@
       "defines": [
         "ARM9",
         "ARM7",
-        "NDS"
+        "NDS",
+        "__GNUC__"
       ]
     }
   ]
