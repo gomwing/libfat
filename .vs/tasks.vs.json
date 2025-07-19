@@ -8,7 +8,7 @@
       "contextType": "build",
       "command": "make",
       "args": [
-        ""
+        "-j 10"
       ],
       "key": "ctrl+shift+b"
     },

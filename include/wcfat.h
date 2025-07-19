@@ -63,25 +63,27 @@ typedef struct __packed {
 } Bpb510;
 
 typedef struct __packed {
-	uint8	jump[3];
-	char	name[8];
-	uint16	bytes_per_sect;
-	uint8	sect_per_clust;
-	uint16	res_sect_cnt;
-	uint8	fat_cnt;
-	uint16	root_ent_cnt;
-	uint16	sect_cnt_16;
-	uint8	media;
-	uint16	sect_per_fat_16;
+	uint8	code[12];
+	uint8	bps;  // bytes per sector * 256
+	uint8	spc;
+	uint16	cnt_rsv;
+	
+	//uint8	cnt_fat;
+	//uint8	must_zero[4];
+	//uint8	media;
+	//uint16	fatsz_16;
+	uint32	cnt_fat;
+	uint32	media_type;
 	uint16	sect_per_track;
-	uint16	head_cnt;
-	uint32	hidden_sect_cnt;
+	uint16	cnt_head;
+	uint32	cnt_hidden;
+	
 	uint32	sect_cnt_32;
-	uint32	sect_per_fat_32;
+	uint32	fatsz_32;
 	uint16	ext_flags;
-	uint8	minor;
-	uint8	major;
+	uint16	fs_version;
 	uint32	root_cluster;
+
 	uint16	info_sect;
 	uint16	copy_bpb_sector;
 	uint8	reserved_0[12];
@@ -91,22 +93,23 @@ typedef struct __packed {
 	uint32	volume_id;
 	char	volume_label[11];
 	char	fs_type[8];
-	uint8	reserved_2[420];
+	uint8	reserved_2[418];
+	uint16		sig;
 } Bpb710;
 
-typedef union __packed {
-	uint8	raw[32];
-	struct {
-		uint8	seq;
-		uint8	name0[10];
-		uint8	attr;
-		uint8	type;
-		uint8	crc;
-		uint8	name1[12];
-		uint16	clust;
-		uint8	name2[4];
-	};
-} Lfn;
+//typedef union __packed {
+//	uint8	raw[32];
+//	struct {
+//		uint8	seq;
+//		uint8	name0[10];
+//		uint8	attr;
+//		uint8	type;
+//		uint8	crc;
+//		uint8	name1[12];
+//		uint16	clust;
+//		uint8	name2[4];
+//	};
+//} Lfn;
 
 typedef union {
 	struct {
@@ -129,7 +132,7 @@ typedef union {
 typedef struct __packed {
 	uint8	name[11];
 	uint8	attr;
-	uint8	ntres;
+	uint8	type;
 	uint8	tenth;
 	fattime	crttime;
 	fatdate	crtdate;
@@ -141,6 +144,20 @@ typedef struct __packed {
 	uint32	size;
 } Sfn;
 
+typedef union __packed {
+	uint8	raw[32];
+	struct {
+		uint8	order;
+		uint8	name1[10];
+		uint8	attr;
+		uint8	type;
+		uint8	checksum;
+		uint8	name2[12];
+		uint16	clust;
+		uint8	name3[4];
+	};
+} Lfn;
+
 typedef struct __packed {
 	uint32	head_sig;
 	uint8	reserved_0[480];
@@ -150,6 +167,59 @@ typedef struct __packed {
 	uint8	reserved_1[12];
 	uint32	tail_sig;
 } FsInfo;
+
+typedef struct {
+#if 0
+	const DISC_INTERFACE* disc;
+	CACHE* cache;
+	// Info about the partition
+	FS_TYPE               filesysType;
+	uint64_t              totalSize;
+	sec_t                 rootDirStart;
+	uint32_t              rootDirCluster;
+	uint32_t              numberOfSectors;
+	sec_t                 dataStart;
+	uint32_t              bytesPerSector;
+	uint32_t              sectorsPerCluster;
+	uint32_t              bytesPerCluster;
+	uint32_t              fsInfoSector;
+	FAT                   fat;
+	// Values that may change after construction
+	uint32_t              cwdCluster;			// Current working directory cluster
+	int                   openFileCount;
+	struct _FILE_STRUCT* firstOpenFile;		// The start of a linked list of files
+	mutex_t               lock;					// A lock for partition operations
+	bool                  readOnly;
+#endif	// If this is set, then do not try writing to the disc
+	uint32            lba;
+	uint32            root_cluster;
+	uint32			fat_sect[2];			// LBA of the two FAT tables
+	uint32            size;
+	uint32			clust_shift;			// Shift for cluster size
+
+	uint32			total_sect;
+	uint32			total_clust;
+	uint32			info_sect;				// LBA of the FsInfo sector
+	uint32			data_sect;				// LBA of the data area
+	uint32			last_used;				// Last used cluster
+	uint32			free_cnt;				// Number of free clusters
+
+	uint32			current_cluster;		// Current cluster for operations`
+	uint32			sect;					// Current sector for operations
+	// Flags for the partition (e.g., mounted, dirty)
+	
+	char                  label[12];			// Volume label
+
+} PartInfo;
+
+typedef struct {
+	uint32		size;
+	uint32		first_cluster;		// Shift for cluster size
+	uint32		chain_info[120];
+} FileInfo;
+
+int probe(/*DiskOps* ops, int partition, */void** lba);
+
 #endif // WCFAT_H
 	
 	

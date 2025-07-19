@@ -35,15 +35,23 @@ bool dldiStartup(void)
 	return true; // Assuming initialization is successful for this example.
 }
 
+FILE* fp;
+
 bool dldiIsInserted(void) 
 {
+	fp = fopen("ndstflash.img", "r");
+		
 	// This function should check if the DLDI medium is inserted, but is not implemented here.
-	return true; // Assuming the medium is always inserted for this example.
+	//return true; // Assuming the medium is always inserted for this example.
+	return (fp!=NULL);
 }
 
 bool dldiReadSectors(sec_t sector, sec_t numSectors, void* buffer) 
 {
+	unsigned long long offset = sector * 512; // Assuming sector size is 512 bytes 
 	// This function should read sectors from the DLDI medium, but is not implemented here.
+	fsetpos64(fp, (fpos_t*)&offset);	//fseek(fp, offset, SEEK_SET);
+	fread(buffer, 512, numSectors, fp);
 	return true; // Assuming read operation is successful for this example.
 }
 
@@ -163,6 +171,12 @@ typedef struct {
 } devoptab_t;
 
 
+DIR_ITER* _WC_diropen_r(struct _reent* r, DIR_ITER* dirState, const char* path);
+int _WC_open_r(struct _reent* r, void* fileStruct, const char* path, int flags, int mode);
+int _WC_close_r(struct _reent* r, void* fd);
+ssize_t _WC_write_r(struct _reent* r, void* fd, const char* ptr, size_t len);
+ssize_t _WC_read_r(struct _reent* r, void* fd, char* ptr, size_t len);
+
 #if 0
 int AddDevice(const devoptab_t* device) {}
 int FindDevice(const char* name) {}
@@ -171,14 +185,41 @@ void setDefaultDevice(int device) {}
 const devoptab_t* GetDeviceOpTab(const char* name) {}
 #endif
 
-#include "fat.h"
+#include "wcfat.h"
+
+struct _FILE_STRUCT {
+	uint32_t             ptr;
+	uint32_t             mode;
+	uint32_t             filesize;
+	uint32_t             startCluster;
+	uint32_t             cluster_chain_buffer[512 / 4 - 4];
+};
+
+typedef struct _FILE_STRUCT FILE_STRUCT;
 
 int main(void) {
+#if 0
     if (!fatInitDefault()) {
         printf("Fat init error !!!\n");
         //while (1)
         //    swi::IntrWait(1, IRQ_VBLANK); //swiWaitForVBlank();
         //return 1;
     }
+#else
+	void *lba;
+	if (!probe(&lba)) {
+		printf("Fat init error !!!\n");
+		//while (1)
+		//    swi::IntrWait(1, IRQ_VBLANK); //swiWaitForVBlank();
+		//return 1;
+	}
+	FILE_STRUCT fileStruct;
+	_WC_open_r(NULL, &fileStruct, "fat:/[_GP2X_]/game/PicoDrive/readme.txt",0,0);
+	//_WC_open_r(NULL, &fileStruct, "fat:/_에뮬/nand/학습/test.mp3", 0, 0);
+
+	DIR_ITER dirIter;
+	//_WC_diropen_r(NULL, &dirIter, "fat:/[_GP2X_]/game/PicoDrive/readme.txt");
+
+#endif
     //#endif
 }
