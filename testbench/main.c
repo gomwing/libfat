@@ -214,11 +214,11 @@ int main(void) {
 		//return 1;
 	}
 	FILE_STRUCT fileStruct;
-	_WC_open_r(NULL, &fileStruct, "fat:/[_GP2X_]/game/PicoDrive/readme.txt",0,0);
+	//_WC_open_r(NULL, &fileStruct, "fat:/[_GP2X_]/game/PicoDrive/readme.txt",0,0);
 	//_WC_open_r(NULL, &fileStruct, "fat:/_에뮬/nand/학습/test.mp3", 0, 0);
 
 	DIR_ITER dirIter;
-	//_WC_diropen_r(NULL, &dirIter, "fat:/[_GP2X_]/game/PicoDrive/readme.txt");
+	_WC_diropen_r(NULL, &dirIter, "fat:/[_GP2X_]/game/PicoDrive/brm/");
 
 #endif
     //#endif

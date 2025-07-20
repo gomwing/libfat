@@ -326,44 +326,7 @@ uint32 get_next_cluster(uint32 cur_cluster)
     return chain_buf[delta]; // Return the next cluster
 }
 
-uint32 build_cluster_chain(uint32 start_cluster, chain_info *chain_start)
-{
-    chain_start->count = 0;
-    chain_start->next_cluster = 0;
 
-	// This function builds a cluster chain starting from 'start_cluster' and fills 'chain' with the wide char representation of the cluster chain.
-	// The implementation details depend on the filesystem structure.
-	// For now, we will just return FAT_ERR_NOFAT to indicate no FAT filesystem found.
-    if (start_cluster < 2 || start_cluster > 0xFFFFFFF6) {
-        return FAT_ERR_PARAM; // Invalid start cluster
-	}
-    if (!chain_start) {
-        return FAT_ERR_PARAM; // Invalid chain pointer
-    }
-	uint32 next_cluster, cur_cluster = start_cluster; // Initialize current cluster
-    PartInfo* pi = &_pi;
-    //uint32 sector = start_cluster / 128;
-	//uint32 delta = start_cluster % 128;
-    chain_info * chain = chain_start; // Initialize the chain count
-
-    do {
-        //prev_start_cluster = start_cluster; // Store the previous cluster value
-        next_cluster = get_next_cluster(cur_cluster);
-        if (next_cluster > 0x0FFFFFF6) {
-            return chain - chain_start; // end
-        } else if (next_cluster - cur_cluster == 1) chain->count ++;
-        else if (next_cluster < pi->total_clust) {
-            //chain++;
-            chain++->next_cluster = next_cluster;
-            chain->count = 0; chain->next_cluster = 0;
-        } else {
-            return FAT_ERR_BROKEN; // Invalid cluster value
-		}
-
-
-    } while (next_cluster < 0x0ffffff7);
-
-}
 
 static uint8 crc4lfn(const uint8* name)
 {
@@ -408,7 +371,7 @@ static Sfn* proceed_idx(void) {
 
 
 
-Sfn* assemble_lfn(wchar_t* lfn) {
+Sfn* assemble_lfn(wchar_t lfn[]) {
 	const uint8 lfn_idx[13] = { 30, 28, 24, 22, 20, 18, 16, 14, 9, 7, 5, 3, 1 };
 	Lfn* entry = (Lfn*)get_sfn_entry();
 	// , * lfn_entry = (Lfn*)direntry_buffer;
@@ -417,8 +380,8 @@ Sfn* assemble_lfn(wchar_t* lfn) {
 	//entry = 
 	uint8   checksum = entry->checksum;
 	uint32  count = entry->order ^ 0x40;
-	if (count > 20) goto error;
-	for (wchar_t* p = &lfn[count * 13 - 1]; count > 0; entry = (Lfn *)proceed_idx(), count--) {
+    if (count > 20) goto error; else lfn[count * 13] = '\0';
+	for (wchar_t* p = &lfn[count * 13 -1]; count > 0; entry = (Lfn*)proceed_idx(), count--) {
 		for (int i = 0; i < 13; i++)
 			*p-- = (wchar_t)(entry->raw[lfn_idx[i]]) | entry->raw[lfn_idx[i] + 1] << 8;
 		if (checksum != entry->checksum || entry->attr != 0x0f || count != (entry->order&0x1f)) goto error; // Checksum mismatch, invalid LFN entry
@@ -455,10 +418,11 @@ int enum_dir_entry(Sfn** sfn, wchar_t lfn[], uint32 filter)
 
     Sfn* entry;// , * lfn_entry = (Lfn*)direntry_buffer;
     //uint8 order;//
-	lfn[0] = 0; // Initialize the long file name buffer
+	//lfn[0] = 0; // Initialize the long file name buffer
     //Lfn* lfn = &lfn_entry[dir_idx & 0x7f];
     
-    for (entry = proceed_idx(); entry->name[0]; entry = proceed_idx())
+    for (entry = proceed_idx(), lfn[0] = 0; entry->name[0]; entry = proceed_idx(), lfn[0] = 0)
+    //do
     { 
 		// e5, 0f , unmatched entries
         if (entry->attr == 0x0f)
@@ -479,7 +443,8 @@ int enum_dir_entry(Sfn** sfn, wchar_t lfn[], uint32 filter)
         // Convert the short file name to Sfn structure
 
         //next_entry //
-    } //while (lfn_entry[dir_idx].name[0] != 0x00 && lfn_entry[dir_idx].name[0] != 0xE5); // Continue until we find a valid entry or reach the end of the directory
+    } //while (entry->name[0]);
+    //while (lfn_entry[dir_idx].name[0] != 0x00 && lfn_entry[dir_idx].name[0] != 0xE5); // Continue until we find a valid entry or reach the end of the directory
 
     return 0;// dir_idx + 1;
 }
@@ -587,7 +552,8 @@ char* stepdown(const char* path, uint32* last_cluster )
             //pupath[depth++] = split;
             utf8to16(&pdir, upath, *p); // Convert UTF8 to wide char
             start_cluster = enterdir(start_cluster, upath);
-            if (!start_cluster) return NULL; // Failed to enter directory
+            if (!start_cluster) 
+                return NULL; // Failed to enter directory
         }
 
     } while (*++p);
@@ -604,25 +570,76 @@ DIR_ITER* _WC_diropen_r(struct _reent* r, DIR_ITER* dirState, const char* path)
     if (!lastdir) {
         return (DIR_ITER * )FAT_ERR_NOFAT; // Failed to step down the directory structure
     }
+    if (*lastdir != '\0') { // If there are still characters left in the path
+        wchar_t upath[256];
+        char* pdir = (char*)lastdir; // Pointer to the current position in the wide char path
+        utf8to16(&pdir, upath, '\0'); // Convert UTF8 to wide char
+        last_cluster = enterdir(start_cluster, upath);
+        if (!last_cluster) {
+            r->_errno = ENOENT; // Set error code for "No such file or directory"
+            return (DIR_ITER*)FAT_ERR_NOFAT; // Failed to enter directory
+        }
+
+    }
+    open_dir(last_cluster); // Open the directory at the specified cluster
 }
+
+uint32 build_cluster_chain(uint32 start_cluster, chain_info* chain_start)
+{
+    chain_start->count = 0;
+    chain_start->next_cluster = 0;
+
+    // This function builds a cluster chain starting from 'start_cluster' and fills 'chain' with the wide char representation of the cluster chain.
+    // The implementation details depend on the filesystem structure.
+    // For now, we will just return FAT_ERR_NOFAT to indicate no FAT filesystem found.
+    if (start_cluster < 2 || start_cluster > 0xFFFFFFF6) {
+        return FAT_ERR_PARAM; // Invalid start cluster
+    }
+    if (!chain_start) {
+        return FAT_ERR_PARAM; // Invalid chain pointer
+    }
+    uint32 next_cluster, cur_cluster = start_cluster; // Initialize current cluster
+    PartInfo* pi = &_pi;
+    //uint32 sector = start_cluster / 128;
+    //uint32 delta = start_cluster % 128;
+    chain_info* chain = chain_start; // Initialize the chain count
+
+    do {
+        //prev_start_cluster = start_cluster; // Store the previous cluster value
+        next_cluster = get_next_cluster(cur_cluster);
+        if (next_cluster > 0x0FFFFFF6) {
+            return chain - chain_start; // end
+        }
+        else if (next_cluster - cur_cluster == 1) chain->count++;
+        else if (next_cluster < pi->total_clust) {
+            //chain++;
+            chain++->next_cluster = next_cluster;
+            chain->count = 0; chain->next_cluster = 0;
+        }
+        else {
+            return FAT_ERR_BROKEN; // Invalid cluster value
+        }
+    } while (next_cluster < 0x0ffffff7);
+}
+
 
 struct _FILE_STRUCT {
     uint32_t             ptr;
     uint32_t             mode;
     uint32_t             filesize;
     uint32_t             startCluster;
-    uint32_t             cluster_chain_buffer[512 / 4 - 4];
+    chain_info           cluster_chain[(512 / 4 - 4)/2];
 };
 
 typedef struct _FILE_STRUCT FILE_STRUCT;
 
-uint32  openfile(void* fileStruct, const char* filename)
+
+uint32  open_file(uint32 dir_cluster, wchar_t *ufile, void* fileStruct)
 {
-    char* pdir = filename; // Pointer to the current position in the wide char path
     Sfn* sfn;
-    wchar_t ufile[128], lfn[128]; // Buffer for long file name
+    wchar_t lfn[128]; // Buffer for long file name
     
-    utf8to16(&pdir, ufile, '\0'); // Convert UTF8 to wide char
+    open_dir(dir_cluster);// , & idx, filter, sfn);
     while (enum_dir_entry(&sfn, lfn, FILTER_FILE)) {
         if (wc_wstrcasecmp(lfn, ufile) == 0) {
 			FILE_STRUCT* fs = (FILE_STRUCT*)fileStruct;
@@ -631,10 +648,10 @@ uint32  openfile(void* fileStruct, const char* filename)
 			fs->filesize = sfn->size; // Get the file size from the Sfn
 			fs->startCluster = (sfn->clust_hi << 16) | sfn->clust_lo; // Get the start cluster from the Sfn
 
-
+            build_cluster_chain(fs->startCluster, (chain_info*) & fs->cluster_chain);
 
             //uint32 sfn_cluster = (sfn->clust_hi << 16) | sfn->clust_lo; // Get the cluster number from the Sfn
-            //return sfn_cluster;
+            return fs->startCluster;
         }
     }
     return 0;
@@ -648,7 +665,13 @@ int _WC_open_r(struct _reent* r, void* fileStruct, const char* path, int flags, 
         r->_errno = ENOENT;
 		//return FAT_ERR_NOFAT; // Failed to step down the directory structure
 	}
-    if (!openfile(fileStruct, filename)) {
+
+    wchar_t ufile[128];
+    char* pdir = (char*)filename; // Pointer to the current position in the wide char path
+    utf8to16(&pdir, ufile, '\0'); // Convert UTF8 to wide char
+
+
+    if (!open_file(last_cluster, ufile, fileStruct)) {
         r->_errno = ENOENT;
         return -1; // File not found
     }
