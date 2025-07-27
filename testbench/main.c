@@ -39,7 +39,7 @@ FILE* fp;
 
 bool dldiIsInserted(void) 
 {
-	fp = fopen("ndstflash.img", "r");
+	fp = fopen("ndstflash.img", "rb");
 		
 	// This function should check if the DLDI medium is inserted, but is not implemented here.
 	//return true; // Assuming the medium is always inserted for this example.
@@ -187,12 +187,15 @@ const devoptab_t* GetDeviceOpTab(const char* name) {}
 
 #include "wcfat.h"
 
+char buffer[65536]; // Buffer for reading sectors
+
 struct _FILE_STRUCT {
 	uint32_t             ptr;
 	uint32_t             mode;
 	uint32_t             filesize;
+	uint32_t			 chainCount;
 	uint32_t             startCluster;
-	uint32_t             cluster_chain_buffer[512 / 4 - 4];
+	uint32_t             cluster_chain_buffer[(512 / 4 - 5)/2];
 };
 
 typedef struct _FILE_STRUCT FILE_STRUCT;
@@ -213,12 +216,37 @@ int main(void) {
 		//    swi::IntrWait(1, IRQ_VBLANK); //swiWaitForVBlank();
 		//return 1;
 	}
+	struct _reent r;
+
+#if 0
 	FILE_STRUCT fileStruct;
-	//_WC_open_r(NULL, &fileStruct, "fat:/[_GP2X_]/game/PicoDrive/readme.txt",0,0);
+	_WC_open_r(&r, &fileStruct, "fat:/[_GP2X_]/game/PicoDrive/readme.txt",0,0);
+	int ret = _WC_open_r(NULL, &fileStruct, "fat:/PCE-cd/ys4.bin", 0, 0);
 	//_WC_open_r(NULL, &fileStruct, "fat:/_에뮬/nand/학습/test.mp3", 0, 0);
 
+	if (ret) {
+		printf("File opened successfully!\n");
+		printf("File size: %u bytes\n", fileStruct.filesize);
+		printf("Start cluster: %u\n", fileStruct.startCluster);
+		printf("Chain count: %u\n", fileStruct.chainCount);
+	
+		_WC_read_r(&r, &fileStruct, buffer, 123);
+		_WC_read_r(&r, &fileStruct, buffer+123, 45);
+		_WC_read_r(&r, &fileStruct, buffer+123+45, 678);
+
+	} else 
+		printf("Failed to open file.\n");
+#endif
 	DIR_ITER dirIter;
-	_WC_diropen_r(NULL, &dirIter, "fat:/[_GP2X_]/game/PicoDrive/brm/");
+	_WC_diropen_r(&r, &dirIter, "fat:/[_GP2X_]/game/../game/PicoDrive/brm");
+	_WC_diropen_r(&r, &dirIter, "fat:/[_GP2X_]/game/PicoDrive/brm/");
+	_WC_diropen_r(&r, &dirIter, "fat:/[_GP2X_]/game/PicoDrive/br2/");
+	_WC_diropen_r(&r, &dirIter, "fat:/[_GP2X_]/game/PicoDrive/br2");
+	_WC_diropen_r(&r, &dirIter, "fat:/[_GP2X_]/game/PicoDrivo/brm");
+	_WC_diropen_r(&r, &dirIter, "fat:/[_GP2X_]/game/PicoDrivo/brm/");
+
+
+
 
 #endif
     //#endif

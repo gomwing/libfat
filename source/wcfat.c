@@ -52,12 +52,10 @@ static int wc_strncmp(const char* _Str1, const char *_Str2, size_t _MaxCount)
     return 0;
 }
 
-uint32 wc_toupper(const wchar_t c)
+static uint32 wc_toupper(const wchar_t c)
 {
-    if (c >= L'a' && c <= L'z') {
-        return c - (L'a' - L'A');
-    }
-	return (uint32)c;
+	if (c < 'a' || c > 'z') return (uint32)c; 
+    else return c - ('a' - 'A');
 }
 
 static void* wc_memcpy(void* _Dst, void const* _Src, size_t _Size) {
@@ -160,6 +158,8 @@ static bool check_fat(uint8 *buf, uint32 lba)
 
 DISC_INTERFACE* dldiGetInternal(void);
 
+static void pwdinit();
+
 int probe(/*DiskOps* ops, int partition, */void** param)
 {
 	uint32 lba = 0; // Start with the first sector
@@ -191,8 +191,7 @@ int probe(/*DiskOps* ops, int partition, */void** param)
        disc->readSectors(lba, 1, g_buf);
     }
     //else *lba = 0;
-
-    bool safe = check_fat(g_buf, lba);
+	bool safe = check_fat(g_buf, lba);
     return safe;// if (clusters > ) FAT_ERR_NONE : FAT_ERR_NOFAT;
 
 }
@@ -232,12 +231,14 @@ wchar_t wchar2dbcs(wchar_t uni) {
 
 }
 
+#if 0
 static wchar_t __toupper(wchar_t c) {
     if (c >= 'a' && c <= 'z') {
         return c - ('a' - 'A'); // Convert lowercase to uppercase
     }
     return c; // Return the character unchanged if it's not lowercase
 }
+#endif
 
 int wstrtosfn(wchar_t* str, Sfn* sfn) {
 	uint32 name_idx = 0; // Initialize name length
@@ -252,7 +253,7 @@ int wstrtosfn(wchar_t* str, Sfn* sfn) {
 		else {
             //name_idx += (*str < 0x100) ? 1 : 2;
             if (*str < 0x100) {
-				name[name_idx++] = __toupper(*str); 
+				name[name_idx++] = (uint8)wc_toupper(*str);
             }
             else {
                 wchar2dbcs(*str);
@@ -272,25 +273,26 @@ int strtosfn(char* str, Sfn* sfn) {
     // Initialize the Sfn structure
 }
 //CString AltUTF8To16(LPCSTR lpMultiByteStr)
-int utf8to16(char** ppdir, wchar_t *psplit, char separator)
+int utf8to16(const char* pdir, wchar_t* psplit, char separator)
 {
-	uint8 *Z = (uint8*)*ppdir;
+	uint8* Z = (uint8*)pdir;
 
-    while (*Z != separator) { //1 byte
-        if (*Z < 0x80)  *psplit++ = (wchar_t)*Z++;
-        else {
-            uint32 val = 0, shift = 0;
-            uint8 lead = (*Z++ ^ 0x80)<<1;
-            for ( ;lead & 0x80; lead <<= 1, shift+=5)
-                val = (val << 6) | (*Z++ ^ 0x80);
-            val |= (uint32)lead << (shift - 1);
+	while (*Z != separator) { //1 byte
+		if (*Z < 0x80)  *psplit++ = (wchar_t)*Z++;
+		else {
+			uint32 val = 0, shift = 0;
+			uint8 lead = (*Z++ ^ 0x80) << 1;
+			for (; lead & 0x80; lead <<= 1, shift += 5)
+				val = (val << 6) | (*Z++ ^ 0x80);
+			val |= (uint32)lead << (shift - 1);
 			*psplit++ = (wchar_t)val; // Convert UTF8 to wide char
-        }
-    }
-    *psplit++ = '\0';
-
-    *ppdir = (char*)++Z; // Update the pointer to the next character after the separator
-    return 0;// ret;// Z - *ppdir; 
+		}
+	}
+	*psplit = '\0';
+    if (*Z != '\0') Z++; // Skip the separator if it exists
+	//*ppdir = (char*)++Z; // Update the pointer to the next character after the separator
+	return Z- (uint8*)pdir;
+    // ret;// Z - *ppdir; 
 }
 
 //fat cache -> 4k ; 8 sectors
@@ -316,6 +318,7 @@ uint32 get_next_cluster(uint32 cur_cluster)
     //MBR mbr;
     PartInfo* pi = &_pi;
 
+    //uint32 sector = pi->fat_sect[0] + cur_cluster / 128;
     uint32 sector = pi->fat_sect[0] + cur_cluster / 128;
     uint32 delta = cur_cluster % 128;
 
@@ -380,11 +383,11 @@ Sfn* assemble_lfn(wchar_t lfn[]) {
 	//entry = 
 	uint8   checksum = entry->checksum;
 	uint32  count = entry->order ^ 0x40;
-    if (count > 20) goto error; else lfn[count * 13] = '\0';
-	for (wchar_t* p = &lfn[count * 13 -1]; count > 0; entry = (Lfn*)proceed_idx(), count--) {
+	if (count > 20) goto error; else lfn[count * 13] = '\0';
+	for (wchar_t* p = &lfn[count * 13 - 1]; count > 0; entry = (Lfn*)proceed_idx(), count--) {
 		for (int i = 0; i < 13; i++)
 			*p-- = (wchar_t)(entry->raw[lfn_idx[i]]) | entry->raw[lfn_idx[i] + 1] << 8;
-		if (checksum != entry->checksum || entry->attr != 0x0f || count != (entry->order&0x1f)) goto error; // Checksum mismatch, invalid LFN entry
+		if (checksum != entry->checksum || entry->attr != 0x0f || count != (entry->order & 0x1f)) goto error; // Checksum mismatch, invalid LFN entry
 	}
 	if (checksum != crc4lfn((const uint8*)entry)) goto error; // Checksum mismatch, invalid LFN entry
 	return (Sfn*)entry; // Successfully assembled the long file name
@@ -415,15 +418,18 @@ void sfn2lfn(Sfn* entry, wchar_t* lfn)
 
 int enum_dir_entry(Sfn** sfn, wchar_t lfn[], uint32 filter) 
 {
-
     Sfn* entry;// , * lfn_entry = (Lfn*)direntry_buffer;
     //uint8 order;//
 	//lfn[0] = 0; // Initialize the long file name buffer
     //Lfn* lfn = &lfn_entry[dir_idx & 0x7f];
     
-    for (entry = proceed_idx(), lfn[0] = 0; entry->name[0]; entry = proceed_idx(), lfn[0] = 0)
+    //for (entry = proceed_idx(), lfn[0] = 0; entry->name[0]; entry = proceed_idx(), lfn[0] = 0)
     //do
-    { 
+	while ((entry = proceed_idx())->name[0])
+    {
+        if(entry->name[0] == 0xE5) // Skip deleted entries
+			continue; // Skip deleted entries
+
 		// e5, 0f , unmatched entries
         if (entry->attr == 0x0f)
         { 
@@ -431,15 +437,15 @@ int enum_dir_entry(Sfn** sfn, wchar_t lfn[], uint32 filter)
             //entry = get_lfn_entry();
             //return dir_idx + 1;
             //continue;
-        }
-        if (entry->name[0] != 0xE5 && entry->attr != 0x0f) {
+        } else lfn[0] = 0;
+        //if (entry->name[0] != 0xE5 && entry->attr != 0x0f) {
             if ((filter | entry->attr) == entry->attr) {
                 // Check if the entry is a valid short file name entry
                 if (lfn[0] == 0) sfn2lfn(entry, lfn);
                 *sfn = entry;
                 return dir_idx + 1;
             }
-        }
+        //}
         // Convert the short file name to Sfn structure
 
         //next_entry //
@@ -463,22 +469,65 @@ int open_dir(uint32 cluster)// , & idx, filter, sfn);
     disc->readSectors(sector + dir_idx / (16 * 8), 8, direntry_buffer);
 #endif  
 	start_cluster = cluster; // Set the starting cluster for directory entries
-	return FAT_ERR_NOFAT;
+    return 1;// pass dir_idx_structure FAT_ERR_NONE;
+}
+
+typedef struct _pwd_struct {
+    uint16 length;
+    wchar_t name[255];
+} pwd_struct;
+
+static pwd_struct pwd;
+//wchar_t pwd[256];
+
+void pwdinit() {
+    pwd.length = 0;
+}
+
+void pwdup()
+{
+    uint32 size = (uint32)pwd.length;
+    while (pwd.name[--size] != '/') {}
+    pwd.name[size] = '\0'; // Remove the last directory from the path       
+    pwd.length = size; // Update the length of the path
+}
+
+void pwdcat(wchar_t* dir)
+{
+    if (*dir == '.')
+    {
+        if (*(dir + 1) == '.') pwdup();
+        return;
+    }
+    uint32 size = (uint32)pwd.length;
+    pwd.name[size++] = '/';
+    //*ptr++ = '/';
+    //for (*ptr++ = '/'; *dir; dir++)
+    while (*dir) {
+        pwd.name[size++] = *dir++;
+    } 
+    pwd.name[size] = '\0';
+    pwd.length = size;
 }
 
 
 
-uint32  enterdir(uint32 start_cluster, wchar_t* dirname)
+static uint32  enterdir(uint32 start_cluster, wchar_t* dirname)
 {
 	//chain_info cluster_chain[128]; // Array to hold the cluster chain
 	//int count = build_cluster_chain(start_cluster, cluster_chain);
 	wchar_t lfn[128]; // Buffer for long file name
     Sfn* sfn;
+    if (*dirname == '\0') return 0;
+    //    return start_cluster; // If the directory name is empty, return the current cluster
+
     open_dir(start_cluster);// , & idx, filter, sfn);
     while (enum_dir_entry(&sfn, lfn, FILTER_DIR)) {
         if (wc_wstrcasecmp(lfn, dirname) == 0) {
 			uint32 sfn_cluster = (sfn->clust_hi << 16) | sfn->clust_lo; // Get the cluster number from the Sfn
-            return sfn_cluster;
+            pwdcat(lfn);
+            if (sfn_cluster == 0) return _pi.root_cluster;
+            else return sfn_cluster;
         } 
 	}
 	return 0;
@@ -532,59 +581,65 @@ void* stepdown(struct _reent* r, const char* path, uint32 is_dir) {
 
 }
 #else
-char* stepdown(const char* path, uint32* last_cluster )
+
+
+
+static uint32 stepdown(const char* path, uint32 last_cluster, char separator)
 {
-    if (!path || !*path) return NULL; // Invalid path
     wchar_t upath[256];
-    uint32 start_cluster = _pi.current_cluster;
+    /*int length = */utf8to16(path, upath, separator); // Convert UTF8 to wide char
+    return enterdir(last_cluster, upath);
+}
+
+static const char* slidedown(const char* path, uint32* last_cluster)
+{
+    if (!path || !*path) return (char*)path; // Invalid path
+    uint32 cur_cluster = _pi.current_cluster;
     char* p = strchr(path, ':');
-	p = p ? p + 1 : (char*)path; // If there's a drive letter, skip it
+	//; // If there's a drive letter, skip it
+	for (p = p ? p + 1 : (char*)path; *p == '\\' || *p == '/'; p++, cur_cluster = _pi.root_cluster) {} // Skip leading separators and set current cluster to root directory
 
-    while (*p == '\\' || *p == '/') {
-        p++;
-        start_cluster = _pi.root_cluster; // Start from root directory
-    }
-	char* pdir = p; // Pointer to the current position in the wide char path
-    do {
-        if (*p == '\\' || *p == '/' || *p == '\0') {
-            // Handle directory separator
-            // 
-            //pupath[depth++] = split;
-            utf8to16(&pdir, upath, *p); // Convert UTF8 to wide char
-            start_cluster = enterdir(start_cluster, upath);
-            if (!start_cluster) 
-                return NULL; // Failed to enter directory
-        }
-
-    } while (*++p);
-    *last_cluster = start_cluster;
-    return pdir;// start_cluster;
+    //path = p; // Update path to the current position after skipping separators
+    //do {
+	for (path = p; *p; p++)
+		if (*p == '\\' || *p == '/') {// || *p == '\0') {
+			uint32 ret_cluster = stepdown(path, cur_cluster, *p); // Step down the directory structure based on the current path segment
+			if (!ret_cluster) break;
+			cur_cluster = ret_cluster;
+			path = p + 1;
+		}
+//} //while (*p++);
+    *last_cluster = cur_cluster;
+    return path;// pdir;// start_cluster;
 }
 
 #endif
 
 DIR_ITER* _WC_diropen_r(struct _reent* r, DIR_ITER* dirState, const char* path)
 {
-    uint32 last_cluster = 0; // Variable to hold the last cluster
-    char* lastdir = stepdown(path, &last_cluster); // Step down the directory structure based on the given path
-    if (!lastdir) {
-        return (DIR_ITER * )FAT_ERR_NOFAT; // Failed to step down the directory structure
-    }
-    if (*lastdir != '\0') { // If there are still characters left in the path
-        wchar_t upath[256];
-        char* pdir = (char*)lastdir; // Pointer to the current position in the wide char path
-        utf8to16(&pdir, upath, '\0'); // Convert UTF8 to wide char
-        last_cluster = enterdir(start_cluster, upath);
-        if (!last_cluster) {
-            r->_errno = ENOENT; // Set error code for "No such file or directory"
-            return (DIR_ITER*)FAT_ERR_NOFAT; // Failed to enter directory
-        }
+    pwdinit();
+    uint32 last_cluster;// = 0; // Variable to hold the last cluster
+    const char* last_entry = slidedown(path, &last_cluster); // Step down the directory structure based on the given path
+#if 1
+    //if (!lastdir) {
+    //    return (DIR_ITER * )FAT_ERR_NOFAT; // Failed to step down the directory structure
+    //}
 
+    if (*last_entry != '\0') { // If there are still characters left in the path
+        uint32 ret_cluster = stepdown(last_entry, last_cluster, '\0'); // Step down to the last directory
+        if (!ret_cluster) {
+            r->_errno = ENOENT; // Set error code for "No such file or directory"
+            return NULL; // Failed to step down to the last directory
+        }
+        else last_cluster = ret_cluster;
     }
-    open_dir(last_cluster); // Open the directory at the specified cluster
+#endif
+	//if (last_cluster == 0) return NULL; // No valid cluster found
+    //open_dir(last_cluster); // Open the directory at the specified cluster
+    return (DIR_ITER * )last_cluster;// (DIR_ITER*)1;
 }
 
-uint32 build_cluster_chain(uint32 start_cluster, chain_info* chain_start)
+static uint32 build_cluster_chain(uint32 start_cluster, chain_info* chain_start)
 {
     chain_start->count = 0;
     chain_start->next_cluster = 0;
@@ -619,6 +674,7 @@ uint32 build_cluster_chain(uint32 start_cluster, chain_info* chain_start)
         else {
             return FAT_ERR_BROKEN; // Invalid cluster value
         }
+		cur_cluster = next_cluster; // Update current cluster to the next cluster
     } while (next_cluster < 0x0ffffff7);
 }
 
@@ -627,14 +683,15 @@ struct _FILE_STRUCT {
     uint32_t             ptr;
     uint32_t             mode;
     uint32_t             filesize;
+    uint32_t			 chainCount;
     uint32_t             startCluster;
-    chain_info           cluster_chain[(512 / 4 - 4)/2];
+    chain_info           cluster_chain[(512 / 4 - 5)/2];
 };
 
 typedef struct _FILE_STRUCT FILE_STRUCT;
 
 
-uint32  open_file(uint32 dir_cluster, wchar_t *ufile, void* fileStruct)
+static uint32  open_file(uint32 dir_cluster, wchar_t *ufile, void* fileStruct)
 {
     Sfn* sfn;
     wchar_t lfn[128]; // Buffer for long file name
@@ -648,7 +705,7 @@ uint32  open_file(uint32 dir_cluster, wchar_t *ufile, void* fileStruct)
 			fs->filesize = sfn->size; // Get the file size from the Sfn
 			fs->startCluster = (sfn->clust_hi << 16) | sfn->clust_lo; // Get the start cluster from the Sfn
 
-            build_cluster_chain(fs->startCluster, (chain_info*) & fs->cluster_chain);
+            fs->chainCount = build_cluster_chain(fs->startCluster, (chain_info*) & fs->cluster_chain);
 
             //uint32 sfn_cluster = (sfn->clust_hi << 16) | sfn->clust_lo; // Get the cluster number from the Sfn
             return fs->startCluster;
@@ -660,18 +717,19 @@ uint32  open_file(uint32 dir_cluster, wchar_t *ufile, void* fileStruct)
 int _WC_open_r(struct _reent* r, void* fileStruct, const char* path, int flags, int mode)
 {
 	uint32 last_cluster = 0; // Variable to hold the last cluster
-	char* filename = stepdown(path, &last_cluster); // Step down the directory structure based on the given path
-	if (!filename) {
+	const char* last_entry = slidedown(path, &last_cluster); // Step down the directory structure based on the given path
+#if 0
+    if (!filename) {
         r->_errno = ENOENT;
 		//return FAT_ERR_NOFAT; // Failed to step down the directory structure
 	}
+#endif
+    wchar_t upath[128];
+    //char* pdir = (char*)filename; // Pointer to the current position in the wide char path
+    utf8to16(last_entry, upath, '\0'); // Convert UTF8 to wide char
 
-    wchar_t ufile[128];
-    char* pdir = (char*)filename; // Pointer to the current position in the wide char path
-    utf8to16(&pdir, ufile, '\0'); // Convert UTF8 to wide char
 
-
-    if (!open_file(last_cluster, ufile, fileStruct)) {
+    if (!open_file(last_cluster, upath, fileStruct)) {
         r->_errno = ENOENT;
         return -1; // File not found
     }
@@ -694,8 +752,46 @@ ssize_t _WC_write_r(struct _reent* r, void* fd, const char* ptr, size_t len)
     return FAT_ERR_NOFAT;
 }
 
+uint32 iterate_file(FILE_STRUCT* fs)
+{
+    uint32 target_cluster_order = fs->ptr >> (_pi.clust_shift + 9);
+    uint32* cluster_ptr = (uint32*) & fs->startCluster;
+    uint32 cur_clusted_cluster = *cluster_ptr++;
+    uint32 clusted_count = *cluster_ptr++;
+    uint32 sum_cluster_count = clusted_count;
+    while (target_cluster_order > sum_cluster_count) {
+        cur_clusted_cluster = *cluster_ptr++;
+        sum_cluster_count += *cluster_ptr++;
+        sum_cluster_count ++;
+    }
+    return cur_clusted_cluster + (sum_cluster_count - target_cluster_order);
+}
+
 ssize_t _WC_read_r(struct _reent* r, void* fd, char* ptr, size_t len)
 {
+    FILE_STRUCT* fs = (FILE_STRUCT*)fd;
+
+    // load prolog
+    // ptr -> cluster -> sector -> idx
+    uint32 idx = fs->ptr;
+
+    uint32 target_cluster_order = fs->ptr >> (_pi.clust_shift + 9);
+    uint32 cluster_delta = fs->ptr ^ (target_cluster_order << (_pi.clust_shift + 9));
+    uint32 cluster_shift = cluster_delta >> 9;
+    //cluster_delta = 
+    uint32 sector_delta = cluster_delta ^ (cluster_shift << 9);
+
+
+
+        // check cluster boundary for ieration
+        // 
+        // load sector boundary
+    uint32 cur_sector = cluster2sector(iterate_file(fs));
+
+    // load epilog
+
+
+
     // This function should read 'len' bytes from the file represented by 'fd' into 'ptr'.
     // The implementation details depend on the filesystem structure.
     // For now, we will just return FAT_ERR_NOFAT to indicate no FAT filesystem found.
