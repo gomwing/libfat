@@ -40,6 +40,10 @@ DISC_INTERFACE* disc = NULL;
 #define strncmp wc_strncmp
 #define memcpy  wc_memcpy
 #define memset  wc_memset
+#define min     wc_min
+
+
+#define wc_min(x,y) ((x<y)?(x):(y))  
 
 //------------------------------------------------------------------------------
 static int wc_strncmp(const char* _Str1, const char *_Str2, size_t _MaxCount)
@@ -752,24 +756,70 @@ ssize_t _WC_write_r(struct _reent* r, void* fd, const char* ptr, size_t len)
     return FAT_ERR_NOFAT;
 }
 
-uint32 iterate_file(FILE_STRUCT* fs)
+uint32 iterate_file(FILE_STRUCT* fs, uint32* remain)
 {
     uint32 target_cluster_order = fs->ptr >> (_pi.clust_shift + 9);
     uint32* cluster_ptr = (uint32*) & fs->startCluster;
-    uint32 cur_clusted_cluster = *cluster_ptr++;
-    uint32 clusted_count = *cluster_ptr++;
-    uint32 sum_cluster_count = clusted_count;
-    while (target_cluster_order > sum_cluster_count) {
-        cur_clusted_cluster = *cluster_ptr++;
-        sum_cluster_count += *cluster_ptr++;
-        sum_cluster_count ++;
+    uint32 cur_clusted_cluster, clusted_count;
+    
+    // = *cluster_ptr++;
+    //uint32 sum_cluster_count = clusted_count;
+   // while (target_cluster_order > sum_cluster_count) 
+    
+    for (cur_clusted_cluster = *cluster_ptr++, clusted_count = *cluster_ptr++; 
+        target_cluster_order >= clusted_count;
+        cur_clusted_cluster = *cluster_ptr++, clusted_count = *cluster_ptr++)
+        //cur_clusted_cluster = *cluster_ptr++;
+        //sum_cluster_count += *cluster_ptr++;
+        //sum_cluster_count ++;
+        target_cluster_order = target_cluster_order -1 - clusted_count;
+    {}
+    if (remain) *remain = clusted_count - target_cluster_order;
+    return cur_clusted_cluster + target_cluster_order;
+}
+
+uint32 cachesec;
+char cache[4096]; // Cache buffer for file data
+
+char* cache_set(FILE_STRUCT* fs)
+{
+	// This function sets the cache for the given file pointer.
+
+
+
+	uint32 cur_sector = cluster2sector(iterate_file(fs, NULL)) + 8 * (( fs->ptr >> 12)&0x07);
+    // Calculate the current sector based on the file pointer
+    cachesec = cur_sector;
+    
+    // Calculate the sector number based on the file pointer
+    //if (fs->ptr >> 12 != cur_sector >> 12) { // Check if we need to load a new sector
+        disc = dldiGetInternal();
+        disc->readSectors(cur_sector, 8, cache); // Load the current sector into the buffer
+    //}
+    return cache; // No cache hit
+}
+
+char* cache_get(FILE_STRUCT* fs)
+{
+    uint32 cur_sector = cluster2sector(iterate_file(fs, NULL)) + 8 * ((fs->ptr >> 12) & 0x07);
+	// This function checks if the cache has the data for the given file pointer.
+    if (cur_sector != cachesec)
+    {
+        disc = dldiGetInternal();
+        disc->readSectors(cur_sector, 8, cache); // Load the current sector into the buffer
+        cachesec = cur_sector;
     }
-    return cur_clusted_cluster + (sum_cluster_count - target_cluster_order);
+    // The implementation details depend on the caching mechanism.
+    // For now, we will just return false to indicate no cache hit.
+    return cache; // No cache hit
 }
 
 ssize_t _WC_read_r(struct _reent* r, void* fd, char* ptr, size_t len)
 {
     FILE_STRUCT* fs = (FILE_STRUCT*)fd;
+
+    len = min(fs->filesize - fs->ptr, len);
+    //    (len > fs->filesize - fs->ptr) ? (fs->filesize - fs->ptr) : len; // Adjust length to not exceed file size
 
     // load prolog
     // ptr -> cluster -> sector -> idx
@@ -779,22 +829,115 @@ ssize_t _WC_read_r(struct _reent* r, void* fd, char* ptr, size_t len)
     uint32 cluster_delta = fs->ptr ^ (target_cluster_order << (_pi.clust_shift + 9));
     uint32 cluster_shift = cluster_delta >> 9;
     //cluster_delta = 
-    uint32 sector_delta = cluster_delta ^ (cluster_shift << 9);
+    //uint32 sector_delta = cluster_delta ^ (cluster_shift << 9);
 
 
 
         // check cluster boundary for ieration
         // 
         // load sector boundary
-    uint32 cur_sector = cluster2sector(iterate_file(fs));
+    uint32 cidx;// , cur_sector = cluster2sector(iterate_file(fs));
+	char* cptr; // Pointer to the cache data
+#if 0
+	if (fs->ptr << 20 != 0) {
+		// load prolog
+        if (cache_hit(fs->ptr)) {
+            memcpy(ptr, cache_get(fs->ptr), len);
+            fs->ptr += len; // Update the file pointer
+            return len; // Return the number of bytes read
+		}
+	}
+#else
+    if ((cidx = (fs->ptr & 0xFFF)) && (cptr = cache_get(fs))) {
+        uint32 remain = 4096 - cidx;
+        uint32 sz = min(len, remain);// len < remain ? len : remain; // Adjust size to not exceed the remaining length
+        // Check if we are not at the start of a sector
+  //      if (remain + len > 4096) {
+  //          len = 4096 - remain; // Adjust length to not exceed the sector size
+		//}
+		memcpy(ptr, cptr + cidx, sz);
+		fs->ptr += sz; // Update the file pointer
+		len -= sz; // Decrease the remaining length to read
+        ptr += sz;
+		if (len == 0) return sz; // Return the number of bytes read
+	}
 
+#endif
+
+#if 0
+    while (fs->ptr < fs->filesize && len > 0)
+    {
+        if (fs->ptr >> 12 != cur_sector >> 12) { // Check if we need to load a new sector
+            disc = dldiGetInternal();
+            disc->readSectors(cur_sector, 8, direntry_buffer); // Load the current sector into the buffer
+        }
+        uint32 offset = fs->ptr & 0xFFF; // Calculate the offset within the sector
+        uint32 bytes_to_read = (len < (4096 - offset)) ? len : (4096 - offset); // Determine how many bytes to read
+        memcpy(ptr, &direntry_buffer[offset], bytes_to_read); // Copy data from the buffer to the output pointer
+        ptr += bytes_to_read; // Move the output pointer forward
+        fs->ptr += bytes_to_read; // Update the file pointer
+        len -= bytes_to_read; // Decrease the remaining length to read
+        if (fs->ptr >= fs->filesize) break; // Stop if we have reached the end of the file
+	}
+#else
+
+    // load 4k boundary
+    //for (uint32 count = len >> 12; count > 0; count--)
+    uint32 count = len >> 12;
+    while(count>0)
+	{
+		//if (fs->ptr >= fs->filesize) break; // Stop if we have reached the end of the file
+        //aggrigate clustered sector
+        uint32 num_blocks = 1;
+        uint32 cluster_count;
+        uint32 max_cont;
+        uint32 cur_sector = cluster2sector(iterate_file(fs, &cluster_count)) + 8 * ((fs->ptr >> 12) & 0x07);
+        //if (cluster_count >= 0)
+
+        max_cont = cluster_count * 8 + (8 - ((fs->ptr >> 12) & 0x07));
+
+            num_blocks = min(max_cont, count);
+        //if (fs->ptr >> 12 != cur_sector >> 12) { // Check if we need to load a new sector
+            disc = dldiGetInternal();
+            uint32 sz = 0x1000 * num_blocks;
+            disc->readSectors(cur_sector, 8 * num_blocks, ptr); // Load the current sector into the buffer
+            
+            
+            fs->ptr += sz; ptr += sz;
+            len -= sz;
+            count -= num_blocks;
+    }
+#endif
     // load epilog
+    if (len > 0) {
+		char* cptr = cache_set(fs); // Cache the data read from the file
+        // read 4kb on cache
+		memcpy(ptr, cptr, len); // Copy remaining data from the buffer to the output pointer 
+        // cache to destination 
+        fs->ptr += len;
+    }
+    return fs->ptr - idx; // Return the number of bytes read
 
-
-
-    // This function should read 'len' bytes from the file represented by 'fd' into 'ptr'.
-    // The implementation details depend on the filesystem structure.
-    // For now, we will just return FAT_ERR_NOFAT to indicate no FAT filesystem found.
-    return FAT_ERR_NOFAT;
+   // return FAT_ERR_NOFAT;
 }
 
+typedef long off32_t;
+typedef off32_t off_t;
+
+//ssize_t _WC_read_r(struct _reent* r, void* fd, char* ptr, size_t len)
+off_t _WC_seek_r(struct _reent* r, void* fd, off_t pos, int dir)
+{
+    FILE_STRUCT* fs = (FILE_STRUCT*)fd;
+    //fs->ptr =
+
+    long ptr = (dir == 0) ? pos : ((dir == 2) ? (fs->filesize - pos) : fs->filesize + pos);
+    if (ptr >= 0 && ptr <= fs->filesize) fs->ptr = ptr;
+//    if (dir == 0) fs->ptr = pos;
+//    else if (dir == 0) fs->ptr = pos; 
+}
+
+off_t _WC_ftell_r(struct _reent* r, void* fd)
+{
+    FILE_STRUCT* fs = (FILE_STRUCT*)fd;
+    return fs->ptr;
+}

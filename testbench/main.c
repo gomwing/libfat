@@ -50,8 +50,11 @@ bool dldiReadSectors(sec_t sector, sec_t numSectors, void* buffer)
 {
 	unsigned long long offset = sector * 512; // Assuming sector size is 512 bytes 
 	// This function should read sectors from the DLDI medium, but is not implemented here.
-	fsetpos64(fp, (fpos_t*)&offset);	//fseek(fp, offset, SEEK_SET);
-	fread(buffer, 512, numSectors, fp);
+	
+	fsetpos(fp, (fpos_t*)&offset);	//fseek(fp, offset, SEEK_SET);
+	//fsetpos64(fp, (fpos_t*)&offset);	//fseek(fp, offset, SEEK_SET);
+
+	uint32_t ret=fread(buffer, 512, numSectors, fp);
 	return true; // Assuming read operation is successful for this example.
 }
 
@@ -187,7 +190,7 @@ const devoptab_t* GetDeviceOpTab(const char* name) {}
 
 #include "wcfat.h"
 
-char buffer[65536]; // Buffer for reading sectors
+char buffer[65536*4]; // Buffer for reading sectors
 
 struct _FILE_STRUCT {
 	uint32_t             ptr;
@@ -218,9 +221,9 @@ int main(void) {
 	}
 	struct _reent r;
 
-#if 0
+#if 1
 	FILE_STRUCT fileStruct;
-	_WC_open_r(&r, &fileStruct, "fat:/[_GP2X_]/game/PicoDrive/readme.txt",0,0);
+	//int ret = _WC_open_r(&r, &fileStruct, "fat:/[_GP2X_]/game/PicoDrive/readme.txt",0,0);
 	int ret = _WC_open_r(NULL, &fileStruct, "fat:/PCE-cd/ys4.bin", 0, 0);
 	//_WC_open_r(NULL, &fileStruct, "fat:/_에뮬/nand/학습/test.mp3", 0, 0);
 
@@ -232,7 +235,11 @@ int main(void) {
 	
 		_WC_read_r(&r, &fileStruct, buffer, 123);
 		_WC_read_r(&r, &fileStruct, buffer+123, 45);
-		_WC_read_r(&r, &fileStruct, buffer+123+45, 678);
+		_WC_read_r(&r, &fileStruct, buffer+123+45, 32768);
+		_WC_read_r(&r, &fileStruct, buffer + 123 + 45+ 32768, 4097);
+		_WC_read_r(&r, &fileStruct, buffer + 123 + 45 + 32768+4097, 40970);
+
+
 
 	} else 
 		printf("Failed to open file.\n");
